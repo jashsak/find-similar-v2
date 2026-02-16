@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Find Similar — Quadrant Explorer</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#0C0C0E;--surface:#1A1A1E;--surface2:#252529;--border:rgba(255,255,255,.08);
+  --text:#F5F5F7;--text2:rgba(255,255,255,.45);--accent:#0A84FF;
+  --safe-top:env(safe-area-inset-top,20px);--safe-bottom:env(safe-area-inset-bottom,20px);
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',sans-serif;
+  -webkit-font-smoothing:antialiased}
+#app{max-width:430px;margin:0 auto;height:100%;display:flex;flex-direction:column;position:relative;overflow:hidden}
+
+.topbar{padding:calc(var(--safe-top) + 6px) 16px 8px;display:flex;align-items:center;gap:10px;z-index:10}
+.topbar .back{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:var(--text);font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:all .15s}
+.topbar .back:active{transform:scale(.88);background:rgba(255,255,255,.12)}
+.topbar .title-group{flex:1;min-width:0}
+.topbar .title{font-size:14px;font-weight:400;color:rgba(255,255,255,.55);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topbar .title span{color:#fff;font-weight:600}
+.topbar .breadcrumb{font-size:10px;color:var(--text2);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:none}
+.topbar .galaxy-btn{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:var(--text2);font-size:15px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:all .2s}
+.topbar .galaxy-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.topbar .galaxy-btn:active{transform:scale(.88)}
+
+.explore-status{text-align:center;font-size:11px;font-weight:500;color:rgba(255,255,255,.3);padding:2px 0;min-height:18px}
+
+.grid-wrap{flex:1;position:relative;overflow:hidden;margin:0 8px}
+.grid-area{width:100%;height:100%;position:relative}
+.cross-h,.cross-v{position:absolute;background:rgba(255,255,255,.03);pointer-events:none;transition:background .3s}
+.cross-h{left:0;right:0;height:1px;top:50%}
+.cross-v{top:0;bottom:0;width:1px;left:50%}
+.ax{position:absolute;font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,.12);pointer-events:none}
+.ax-t{top:6px;left:50%;transform:translateX(-50%)}
+.ax-b{bottom:6px;left:50%;transform:translateX(-50%)}
+.ax-l{left:6px;top:50%;transform:translateY(-50%) rotate(-90deg)}
+.ax-r{right:6px;top:50%;transform:translateY(-50%) rotate(90deg)}
+.count-badge{position:absolute;bottom:8px;right:12px;font-size:10px;color:rgba(255,255,255,.2);pointer-events:none}
+
+.card{position:absolute;width:72px;border-radius:13px;cursor:pointer;
+  transition:left .45s cubic-bezier(.4,.0,.2,1),top .45s cubic-bezier(.4,.0,.2,1),opacity .3s ease,transform .15s ease;
+  will-change:transform,opacity}
+.card:active{transform:scale(1.08);z-index:55}
+.card.origin .swatch{width:80px;height:80px;border-radius:15px;border:2px solid rgba(255,255,255,.45);box-shadow:0 0 20px rgba(255,255,255,.08)}
+.card.origin{width:80px}
+.card.origin .card-name,.card.origin .card-brand{width:80px}
+.card.fade-out{opacity:0;transform:scale(.75);pointer-events:none}
+.card.fade-in{animation:fi .35s cubic-bezier(.34,1.56,.64,1) forwards}
+@keyframes fi{from{opacity:0;transform:scale(.7)}to{opacity:1;transform:scale(1)}}
+
+.swatch{width:72px;height:72px;border-radius:13px;position:relative;overflow:hidden;
+  box-shadow:0 2px 12px rgba(0,0,0,.5)}
+.swatch .tex{position:absolute;inset:0;opacity:.4;mix-blend-mode:overlay;pointer-events:none}
+.swatch .noise{position:absolute;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.15'/%3E%3C/svg%3E");background-size:128px;opacity:.35;pointer-events:none}
+.card .sim-badge{position:absolute;top:-3px;right:-3px;background:rgba(0,0,0,.65);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border-radius:7px;padding:2px 5px;font-size:9px;font-weight:700;color:rgba(255,255,255,.8);border:1px solid rgba(255,255,255,.08)}
+.card .card-name{font-size:10px;font-weight:600;color:var(--text);margin-top:3px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:72px}
+.card .card-brand{font-size:8px;color:var(--text2);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:72px}
+
+.controls{padding:6px 16px calc(var(--safe-bottom) + 8px);z-index:20}
+.pills{display:flex;gap:3px;background:rgba(255,255,255,.05);border-radius:100px;padding:3px;margin-bottom:8px;justify-content:center}
+.pill{padding:7px 16px;border-radius:100px;font-size:12px;font-weight:500;cursor:pointer;transition:all .2s;color:rgba(255,255,255,.35);border:none;background:none;white-space:nowrap}
+.pill:active{transform:scale(.93)}
+.pill.on{background:rgba(255,255,255,.1);color:#fff}
+
+.pad-wrap{width:100%;max-width:280px;margin:0 auto}
+.pad{position:relative;width:100%;height:48px;border-radius:14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.06);cursor:pointer;transition:height .35s cubic-bezier(.25,.46,.45,.94),border-radius .35s ease;overflow:hidden}
+.pad.open{height:180px;border-radius:16px}
+.pad-row{position:absolute;inset:0;display:flex;align-items:center;justify-content:space-between;padding:0 16px;transition:opacity .25s;pointer-events:none;font-size:11px;font-weight:600;color:rgba(255,255,255,.25)}
+.pad.open .pad-row{opacity:0}
+.pad-row .mid{font-weight:500;color:rgba(255,255,255,.4);font-size:12px}
+.pad-inner{position:absolute;inset:0;opacity:0;transition:opacity .3s;pointer-events:none}
+.pad.open .pad-inner{opacity:1}
+.pad-line{position:absolute;background:rgba(255,255,255,.05)}
+.pad-line-h{width:100%;height:1px;top:50%}
+.pad-line-v{height:100%;width:1px;left:50%}
+.pal{position:absolute;font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,.18)}
+.pal-t{top:8px;left:50%;transform:translateX(-50%)}
+.pal-b{bottom:8px;left:50%;transform:translateX(-50%)}
+.pal-l{left:8px;top:50%;transform:translateY(-50%)}
+.pal-r{right:8px;top:50%;transform:translateY(-50%)}
+.dot{position:absolute;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 0 10px rgba(255,255,255,.25),0 2px 8px rgba(0,0,0,.4);z-index:30;cursor:grab;display:flex;align-items:center;justify-content:center;touch-action:none}
+.dot:active{cursor:grabbing;box-shadow:0 0 18px rgba(255,255,255,.4),0 2px 12px rgba(0,0,0,.5)}
+.dot i{width:6px;height:6px;border-radius:50%;background:var(--bg);display:block}
+
+/* Galaxy cluster view */
+.cluster-view{position:absolute;inset:0;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:14px;padding:20px;opacity:0;pointer-events:none;transition:opacity .4s}
+.cluster-view.active{opacity:1;pointer-events:auto}
+.cluster-bubble{display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:50%;background:var(--surface);border:1px solid var(--border);cursor:pointer;transition:transform .2s}
+.cluster-bubble:active{transform:scale(.9)}
+.cl-name{font-size:11px;font-weight:600}
+.cl-count{font-size:9px;color:var(--text2)}
+.cl-dots{display:flex;gap:2px;margin-top:4px;flex-wrap:wrap;justify-content:center;max-width:60%}
+.cl-dot{width:6px;height:6px;border-radius:50%}
+
+/* Detail bottom sheet */
+.detail-sheet{position:absolute;bottom:0;left:0;right:0;background:var(--surface);border-radius:20px 20px 0 0;z-index:60;transform:translateY(100%);transition:transform .4s cubic-bezier(.25,.46,.45,.94);box-shadow:0 -4px 30px rgba(0,0,0,.6);max-height:60%}
+.detail-sheet.open{transform:translateY(0)}
+.detail-handle{width:36px;height:4px;border-radius:2px;background:rgba(255,255,255,.15);margin:10px auto 0;cursor:pointer}
+.detail-content{padding:14px 20px 24px;overflow-y:auto;max-height:calc(60vh - 20px)}
+.detail-swatch{width:100%;height:110px;border-radius:14px;position:relative;overflow:hidden;margin-bottom:12px}
+.detail-swatch .tex{position:absolute;inset:0;opacity:.35;mix-blend-mode:overlay}
+.detail-swatch .noise{position:absolute;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.15'/%3E%3C/svg%3E");background-size:128px;opacity:.4}
+.detail-name{font-size:20px;font-weight:700}
+.detail-brand{font-size:13px;color:var(--text2);margin-top:2px}
+.detail-collection{font-size:12px;color:var(--accent);margin-top:2px}
+.detail-price{font-size:15px;font-weight:600;margin-top:8px}
+.detail-specs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.detail-spec{background:var(--bg);border-radius:10px;padding:10px}
+.spec-label{font-size:9px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
+.spec-value{font-size:13px;font-weight:600;margin-top:2px}
+.detail-actions{display:flex;gap:10px;margin-top:14px}
+.detail-actions button{flex:1;padding:13px;border-radius:14px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:transform .15s}
+.detail-actions button:active{transform:scale(.95)}
+.btn-similar{background:var(--accent);color:#fff}
+.btn-project{background:var(--surface2);color:var(--text);border:1px solid rgba(255,255,255,.1)!important}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="topbar">
+    <button class="back" id="backBtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+    <div class="title-group">
+      <div class="title" id="titleText">Similar to <span>Burgundy Velvet</span></div>
+      <div class="breadcrumb" id="breadcrumb"></div>
+    </div>
+    <button class="galaxy-btn" id="galaxyBtn" title="Galaxy view">⊙</button>
+  </div>
+  <div class="explore-status" id="status"></div>
+  <div class="grid-wrap">
+    <div class="grid-area" id="grid">
+      <div class="cross-h"></div>
+      <div class="cross-v"></div>
+      <div class="ax ax-t" id="axT"></div>
+      <div class="ax ax-b" id="axB"></div>
+      <div class="ax ax-l" id="axL"></div>
+      <div class="ax ax-r" id="axR"></div>
+      <div class="count-badge" id="countBadge"></div>
+    </div>
+    <div class="cluster-view" id="clusterView"></div>
+  </div>
+  <div class="controls">
+    <div class="pills" id="pills"></div>
+    <div class="pad-wrap">
+      <div class="pad" id="pad">
+        <div class="pad-row"><span id="rowL"></span><span class="mid">Drag to explore</span><span id="rowR"></span></div>
+        <div class="pad-inner">
+          <div class="pad-line pad-line-h"></div>
+          <div class="pad-line pad-line-v"></div>
+          <span class="pal pal-t" id="pT"></span>
+          <span class="pal pal-b" id="pB"></span>
+          <span class="pal pal-l" id="pL"></span>
+          <span class="pal pal-r" id="pR"></span>
+        </div>
+        <div class="dot" id="dot"><i></i></div>
+      </div>
+    </div>
+  </div>
+  <div class="detail-sheet" id="detailSheet">
+    <div class="detail-handle" id="detailHandle"></div>
+    <div class="detail-content" id="detailContent"></div>
+  </div>
+</div>
+
+<script>
+// ── BRANDS & DATA ──
+const BRANDS={fabric:['Kravet','Maharam','Schumacher','Holly Hunt','Designtex','Knoll Textiles'],stone:['Walker Zanger','Ann Sacks','Daltile','Caesarstone','Cambria'],wood:['Havwoods','Duchateau'],tile:['Daltile','Ann Sacks','Fireclay Tile','Heath Ceramics','Walker Zanger'],metal:['Forms+Surfaces','Caesarstone']};
+const COLLS=['Artisan Series','Heritage','Modern Craft','Studio Line','Luxe Edit','Natural Origins','Signature','Atelier','The Archive','Botanica','Terra Nova','Côte d\'Azur'];
+const COMPS={velvet:'100% Cotton Velvet',linen:'100% Belgian Linen',silk:'100% Mulberry Silk',wool:'80% Wool / 20% Nylon','bouclé':'75% Wool / 25% Polyester',marble:'Natural Marble',granite:'Natural Granite',slate:'Natural Slate',travertine:'Natural Travertine',oak:'Solid White Oak',walnut:'Solid Black Walnut',teak:'Solid Teak',maple:'Solid Maple',ceramic:'Glazed Ceramic',porcelain:'Porcelain Stoneware',zellige:'Handmade Zellige',brass:'Solid Brass',copper:'Solid Copper',steel:'Brushed Stainless Steel'};
+
+function texCSS(s){
+  const m={velvet:'background:repeating-linear-gradient(90deg,rgba(255,255,255,.03) 0px,transparent 1px,transparent 3px)',linen:'background:repeating-linear-gradient(0deg,rgba(255,255,255,.04) 0px,transparent 1px,transparent 2px),repeating-linear-gradient(90deg,rgba(255,255,255,.04) 0px,transparent 1px,transparent 2px)',silk:'background:linear-gradient(135deg,rgba(255,255,255,.1) 0%,transparent 50%,rgba(255,255,255,.05) 100%)',wool:'background:repeating-linear-gradient(45deg,rgba(255,255,255,.03) 0px,transparent 2px,transparent 4px)','bouclé':'background:radial-gradient(circle 2px,rgba(255,255,255,.06) 0%,transparent 100%) 0 0/6px 6px',marble:'background:repeating-linear-gradient(110deg,rgba(255,255,255,.06) 0px,transparent 3px,transparent 8px,rgba(255,255,255,.03) 9px,transparent 12px)',granite:'background:radial-gradient(circle 1px,rgba(255,255,255,.06) 0%,transparent 100%) 0 0/4px 4px,radial-gradient(circle 1px,rgba(0,0,0,.1) 0%,transparent 100%) 2px 2px/4px 4px',slate:'background:repeating-linear-gradient(175deg,rgba(255,255,255,.04) 0px,transparent 1px,transparent 5px)',travertine:'background:repeating-linear-gradient(0deg,rgba(255,255,255,.03) 0px,transparent 1px,transparent 3px,rgba(0,0,0,.03) 4px,transparent 5px,transparent 8px)',oak:'background:repeating-linear-gradient(0deg,rgba(255,255,255,.03) 0px,transparent 1px,transparent 4px,rgba(0,0,0,.03) 5px,transparent 6px,transparent 10px)',walnut:'background:repeating-linear-gradient(0deg,rgba(255,255,255,.03) 0px,transparent 1px,transparent 4px,rgba(0,0,0,.03) 5px,transparent 6px,transparent 10px)',teak:'background:repeating-linear-gradient(0deg,rgba(255,255,255,.03) 0px,transparent 1px,transparent 4px,rgba(0,0,0,.03) 5px,transparent 6px,transparent 10px)',maple:'background:repeating-linear-gradient(0deg,rgba(255,255,255,.03) 0px,transparent 1px,transparent 4px,rgba(0,0,0,.03) 5px,transparent 6px,transparent 10px)',ceramic:'',porcelain:'background:linear-gradient(135deg,rgba(255,255,255,.06) 0%,transparent 100%)',zellige:'background:repeating-conic-gradient(rgba(255,255,255,.04) 0deg,transparent 90deg) 0 0/12px 12px',brass:'background:linear-gradient(135deg,rgba(255,255,255,.12) 0%,transparent 40%,rgba(255,255,255,.06) 100%)',copper:'background:linear-gradient(135deg,rgba(255,255,255,.1) 0%,transparent 40%,rgba(255,255,255,.05) 100%)',steel:'background:repeating-linear-gradient(90deg,rgba(255,255,255,.04) 0px,transparent 1px,transparent 3px)'};
+  return m[s]||'';
+}
+
+// ── GENERATE 83 MATERIALS ──
+function R(a,b){return a+Math.random()*(b-a)}
+function RI(a,b){return Math.floor(R(a,b))}
+function P(a){return a[RI(0,a.length)]}
+
+const pool=[];let _id=0;
+function add(name,cat,sub,color,lightness,matte,price,texture,pattern,warmth,weight){
+  pool.push({id:_id++,name,cat,sub,color,brand:P(BRANDS[cat]),coll:P(COLLS),comp:COMPS[sub]||sub,
+    price:['$18/yd','$28/sf','$32/yd','$45/sf','$55/yd','$65/sf','$89/yd','$95/yd','$120/sf','$145/sf','$180/yd','$220/sf'][RI(0,12)],
+    // Axis values 0-1
+    lightness,matte,pr:price,texture,pattern,warmth,weight,
+    specs:{wt:RI(100,500)+'g/m²',w:(48+RI(0,12))+'"',rp:RI(0,24)+'"'}});
+}
+
+// Fabrics - Velvet
+add('Burgundy Velvet','fabric','velvet','#722F37',.31,.75,.6,.7,.2,.7,.5);
+add('Midnight Velvet','fabric','velvet','#191970',.27,.7,.5,.72,.18,.3,.55);
+add('Emerald Velvet','fabric','velvet','#046307',.2,.72,.55,.68,.22,.45,.5);
+add('Blush Velvet','fabric','velvet','#DE6FA1',.65,.6,.5,.65,.15,.55,.35);
+add('Ivory Velvet','fabric','velvet','#FFFFF0',.97,.55,.45,.6,.1,.5,.3);
+add('Charcoal Velvet','fabric','velvet','#36454F',.26,.68,.4,.7,.15,.4,.55);
+add('Saffron Velvet','fabric','velvet','#F4C430',.57,.58,.55,.65,.25,.8,.4);
+add('Dusty Rose Velvet','fabric','velvet','#C4767A',.62,.62,.48,.66,.2,.6,.38);
+add('Teal Velvet','fabric','velvet','#008080',.25,.7,.52,.68,.18,.35,.5);
+// Fabrics - Linen
+add('Natural Linen','fabric','linen','#C4B99A',.69,.35,.25,.35,.15,.55,.3);
+add('Oatmeal Linen','fabric','linen','#D2C4A5',.74,.3,.2,.3,.1,.5,.25);
+add('Slate Linen','fabric','linen','#708090',.5,.4,.35,.38,.12,.35,.35);
+add('Terracotta Linen','fabric','linen','#CC6644',.53,.38,.35,.4,.18,.78,.35);
+add('Indigo Linen','fabric','linen','#3F5277',.36,.42,.4,.42,.2,.3,.38);
+add('Mustard Linen','fabric','linen','#C9932E',.48,.36,.32,.38,.15,.75,.32);
+add('Cloud Linen','fabric','linen','#E8E4DE',.89,.28,.28,.3,.08,.48,.22);
+// Fabrics - Silk
+add('Champagne Silk','fabric','silk','#F7E7CE',.89,.2,.7,.15,.12,.6,.15);
+add('Pearl Silk','fabric','silk','#EAE0C8',.85,.22,.65,.12,.1,.55,.12);
+add('Ruby Silk','fabric','silk','#9B111E',.34,.18,.75,.18,.15,.65,.18);
+add('Noir Silk','fabric','silk','#1B1B1B',.11,.15,.6,.1,.08,.42,.15);
+add('Lavender Silk','fabric','silk','#B57EDC',.68,.2,.6,.14,.18,.4,.14);
+add('Ocean Silk','fabric','silk','#1A5276',.28,.22,.65,.16,.14,.3,.16);
+// Fabrics - Wool
+add('Mist Wool','fabric','wool','#C4C4C4',.77,.5,.42,.52,.2,.42,.48);
+add('Camel Wool','fabric','wool','#C19A6B',.59,.52,.48,.55,.18,.72,.5);
+add('Forest Wool','fabric','wool','#2C4A2E',.23,.55,.42,.58,.22,.42,.55);
+add('Navy Wool','fabric','wool','#1E2952',.22,.52,.48,.55,.2,.32,.52);
+add('Cream Wool','fabric','wool','#FFFDD0',.91,.38,.35,.42,.1,.58,.35);
+add('Moss Wool','fabric','wool','#5B6B4A',.35,.52,.38,.55,.2,.48,.5);
+// Fabrics - Bouclé
+add('Heather Bouclé','fabric','bouclé','#9B8B7A',.54,.55,.52,.72,.55,.55,.48);
+add('Snow Bouclé','fabric','bouclé','#F0EDE8',.93,.42,.48,.68,.5,.48,.38);
+add('Charcoal Bouclé','fabric','bouclé','#3E3E3E',.24,.58,.48,.75,.52,.42,.52);
+add('Sage Bouclé','fabric','bouclé','#87A878',.56,.48,.42,.7,.48,.45,.42);
+add('Rust Bouclé','fabric','bouclé','#A0522D',.4,.55,.48,.72,.55,.75,.5);
+// Stones - Marble
+add('Calacatta Marble','stone','marble','#F5F0E8',.93,.35,.92,.25,.55,.5,.72);
+add('Nero Marquina','stone','marble','#1C1C1C',.11,.4,.88,.3,.5,.4,.82);
+add('Statuario','stone','marble','#FAF8F5',.97,.32,.95,.22,.58,.48,.7);
+add('Emperador Dark','stone','marble','#3E2B1C',.18,.45,.72,.35,.48,.7,.78);
+add('Green Onyx','stone','marble','#3A6B35',.31,.38,.85,.28,.6,.45,.65);
+add('Rose Quartz Marble','stone','marble','#E8B4B8',.81,.35,.82,.25,.5,.55,.68);
+add('Honey Onyx','stone','marble','#C8973E',.51,.38,.85,.3,.55,.75,.65);
+// Stones - Granite
+add('Absolute Black','stone','granite','#0A0A0A',.04,.48,.6,.42,.2,.4,.9);
+add('Kashmir White','stone','granite','#E8E0D8',.88,.38,.55,.35,.28,.48,.72);
+add('Blue Pearl','stone','granite','#3A4B6B',.32,.42,.65,.4,.32,.3,.78);
+// Stones - Slate
+add('Silver Cloud Slate','stone','slate','#8B9DAF',.61,.52,.48,.48,.2,.38,.72);
+add('Charcoal Slate','stone','slate','#2F3640',.22,.58,.45,.52,.18,.35,.78);
+add('Rustic Slate','stone','slate','#5C4A3A',.29,.55,.42,.5,.25,.6,.75);
+// Stones - Travertine
+add('Ivory Travertine','stone','travertine','#E8DCC8',.85,.42,.6,.4,.42,.58,.65);
+add('Noce Travertine','stone','travertine','#8B7355',.44,.48,.55,.45,.38,.65,.68);
+add('Silver Travertine','stone','travertine','#C5BFB5',.76,.42,.58,.38,.35,.48,.62);
+// Woods
+add('White Oak Natural','wood','oak','#C4A46E',.6,.42,.48,.45,.2,.58,.48);
+add('Cerused Oak','wood','oak','#B8A88C',.63,.38,.58,.42,.28,.55,.45);
+add('Fumed Oak','wood','oak','#4A3728',.22,.52,.55,.48,.22,.62,.52);
+add('American Walnut','wood','walnut','#5C4033',.28,.5,.65,.52,.2,.68,.58);
+add('Dark Walnut','wood','walnut','#3B2716',.16,.55,.62,.55,.22,.65,.6);
+add('Golden Teak','wood','teak','#9C7A3C',.42,.45,.68,.48,.18,.75,.52);
+add('Weathered Teak','wood','teak','#8B8178',.51,.48,.55,.45,.15,.55,.48);
+add('Teak Parquet','wood','teak','#8B6F47',.41,.48,.6,.5,.4,.7,.55);
+add('Sugar Maple','wood','maple','#D4B896',.71,.38,.42,.4,.12,.58,.42);
+add('Bird\'s Eye Maple','wood','maple','#C8A96E',.61,.4,.65,.42,.52,.58,.45);
+add('Ebony','wood','walnut','#1C1009',.07,.55,.82,.58,.18,.6,.85);
+// Tiles - Ceramic
+add('White Subway','tile','ceramic','#F8F8F8',.97,.3,.18,.15,.1,.48,.42);
+add('Sage Green Ceramic','tile','ceramic','#8FAE80',.59,.35,.25,.2,.15,.42,.45);
+add('Cobalt Ceramic','tile','ceramic','#0047AB',.34,.28,.35,.18,.22,.3,.48);
+add('Terracotta Tile','tile','ceramic','#C1440E',.41,.42,.28,.35,.25,.82,.52);
+// Tiles - Porcelain
+add('Blanc Porcelain','tile','porcelain','#F5F3F0',.95,.22,.45,.12,.1,.48,.55);
+add('Basalt Porcelain','tile','porcelain','#323232',.2,.35,.4,.2,.1,.42,.58);
+add('Carrara Look','tile','porcelain','#ECE8E3',.91,.28,.5,.18,.35,.48,.55);
+// Tiles - Zellige
+add('Blue Zellige','tile','zellige','#2E5090',.37,.52,.58,.55,.72,.32,.48);
+add('White Zellige','tile','zellige','#F0EDE5',.92,.48,.52,.5,.68,.48,.42);
+add('Green Zellige','tile','zellige','#3A6B4A',.32,.52,.55,.52,.7,.42,.48);
+add('Terracotta Zellige','tile','zellige','#B5522A',.44,.55,.48,.55,.72,.78,.48);
+add('Pink Zellige','tile','zellige','#D4848A',.68,.5,.52,.5,.68,.58,.45);
+// Metals
+add('Brushed Brass','metal','brass','#C5A654',.55,.25,.7,.2,.15,.75,.65);
+add('Antique Brass','metal','brass','#9C7A3C',.42,.35,.65,.28,.22,.72,.68);
+add('Polished Brass','metal','brass','#D4AF37',.52,.1,.75,.08,.12,.78,.62);
+add('Satin Brass','metal','brass','#CDA434',.5,.18,.7,.12,.1,.76,.62);
+add('Raw Copper','metal','copper','#B87333',.46,.3,.58,.22,.18,.75,.68);
+add('Patina Copper','metal','copper','#4A7B6F',.39,.42,.55,.35,.3,.45,.65);
+add('Burnished Copper','metal','copper','#8C4A2F',.37,.35,.58,.28,.22,.72,.68);
+add('Brushed Steel','metal','steel','#8D8D8D',.55,.2,.4,.1,.08,.4,.72);
+add('Black Steel','metal','steel','#2C2C2C',.17,.28,.45,.15,.1,.4,.78);
+add('Mirror Steel','metal','steel','#C0C0C0',.75,.05,.5,.05,.05,.42,.68);
+
+// ── AXIS MODES ──
+const MODES=[
+  {id:'color',label:'Color',xP:'lightness',yP:'matte',xL:['Dark','Light'],yL:['Glossy','Matte']},
+  {id:'price',label:'Price',xP:'pr',yP:'lightness',xL:['$','$$$$'],yL:['Dark','Light']},
+  {id:'texture',label:'Texture',xP:'texture',yP:'pattern',xL:['Smooth','Textured'],yL:['Solid','Patterned']},
+  {id:'weight',label:'Weight',xP:'weight',yP:'warmth',xL:['Light','Heavy'],yL:['Cool','Warm']}
+];
+
+// ── STATE ──
+let mode=0, dx=.5, dy=.5, expanded=false, dragging=false;
+let originStack=[pool[0]]; // start with Burgundy Velvet
+let galaxyMode=false;
+const vis=new Set(), cards=new Map();
+const MAX=14;
+const gridEl=document.getElementById('grid'),padEl=document.getElementById('pad'),dotEl=document.getElementById('dot');
+
+// ── SCORING (key innovation from reference) ──
+function score(m){
+  const cfg=MODES[mode];
+  const org=originStack[originStack.length-1];
+  // Explore fit: how close material is to pad position
+  const xd=Math.abs(m[cfg.xP]-dx), yd=Math.abs(m[cfg.yP]-dy);
+  const eFit=1-Math.sqrt(xd*xd+yd*yd);
+  // Similarity to origin: multi-dimensional distance
+  const oD=Math.sqrt(
+    Math.pow(m.lightness-org.lightness,2)+
+    Math.pow(m.pr-org.pr,2)+
+    Math.pow(m.texture-org.texture,2)+
+    Math.pow(m.pattern-org.pattern,2)+
+    Math.pow(m.warmth-org.warmth,2)+
+    Math.pow(m.weight-org.weight,2)
+  );
+  const sFit=1-oD;
+  // Weight by distance from center — further from center = more explore, less similarity
+  const dDist=Math.sqrt(Math.pow(dx-.5,2)+Math.pow(dy-.5,2));
+  const w=Math.min(1,dDist*3);
+  return sFit*(1-w*.6)+eFit*w;
+}
+
+function pick(){
+  const org=originStack[originStack.length-1];
+  const scored=pool.filter(m=>m.id!==org.id).map(m=>({m,s:score(m)})).sort((a,b)=>b.s-a.s);
+  return new Set(scored.slice(0,MAX).map(x=>x.m.id));
+}
+
+// ── COLLISION RESOLVER ──
+function resolve(pos,sz){
+  for(let it=0;it<12;it++){let mv=false;for(let i=0;i<pos.length;i++)for(let j=i+1;j<pos.length;j++){
+    const ddx=pos[j].x-pos[i].x,ddy=pos[j].y-pos[i].y,d=Math.sqrt(ddx*ddx+ddy*ddy),md=sz+8;
+    if(d<md&&d>.1){mv=true;const p=(md-d)/2*1.05,nx=ddx/d,ny=ddy/d;pos[i].x-=nx*p;pos[i].y-=ny*p;pos[j].x+=nx*p;pos[j].y+=ny*p;}
+  }if(!mv)break;}
+  return pos;
+}
+
+// ── DARK COLOR HELPER ──
+function dk(hex,n){const v=parseInt(hex.slice(1),16);return'#'+((Math.max(0,(v>>16)-n)<<16)|(Math.max(0,((v>>8)&255)-n)<<8)|Math.max(0,(v&255)-n)).toString(16).padStart(6,'0')}
+
+// ── CREATE CARD ──
+function mkCard(m,isOrigin){
+  const el=document.createElement('div');
+  el.className='card'+(isOrigin?' origin':'');
+  const sz=isOrigin?80:72;
+  el.innerHTML=`<div class="swatch" style="background:linear-gradient(145deg,${m.color},${dk(m.color,25)})">
+    <div class="tex" style="${texCSS(m.sub)}"></div><div class="noise"></div></div>
+    ${isOrigin?'':`<span class="sim-badge"></span>`}
+    <div class="card-name">${m.name}</div>
+    <div class="card-brand">${m.brand}</div>`;
+  el.addEventListener('click',e=>{e.stopPropagation();showDetail(m)});
+  return el;
+}
+
+// ── UPDATE GRID ──
+function updateGrid(){
+  const cfg=MODES[mode];
+  const org=originStack[originStack.length-1];
+  const r=gridEl.getBoundingClientRect();
+  const pd=40,cs=72,w=r.width-pd*2,h=r.height-pd*2;
+  const nv=pick();
+
+  // Fade out removed
+  vis.forEach(id=>{
+    if(!nv.has(id)&&cards.has(id)){
+      const el=cards.get(id);el.classList.add('fade-out');
+      setTimeout(()=>{el.remove();cards.delete(id)},350);
+    }
+  });
+
+  // Add new
+  nv.forEach(id=>{
+    if(!cards.has(id)){
+      const m=pool.find(p=>p.id===id);
+      const el=mkCard(m,false);el.classList.add('fade-in');
+      gridEl.appendChild(el);cards.set(id,el);
+      setTimeout(()=>el.classList.remove('fade-in'),400);
+    }
+  });
+  vis.clear();nv.forEach(id=>vis.add(id));
+
+  // Ensure origin
+  if(!cards.has('o')){const oe=mkCard(org,true);gridEl.appendChild(oe);cards.set('o',oe);}
+
+  // Position
+  const allMats=[org,...pool.filter(m=>vis.has(m.id))];
+  const pos=allMats.map(m=>({x:pd+m[cfg.xP]*w,y:pd+(1-m[cfg.yP])*h}));
+  const resolved=resolve(pos,cs);
+  resolved.forEach(p=>{p.x=Math.max(4,Math.min(r.width-cs-4,p.x));p.y=Math.max(4,Math.min(r.height-cs-4,p.y))});
+
+  allMats.forEach((m,i)=>{
+    const key=i===0?'o':m.id;
+    const el=cards.get(key);
+    if(!el||el.classList.contains('fade-out'))return;
+    el.style.left=resolved[i].x+'px';
+    el.style.top=resolved[i].y+'px';
+    if(i>0){
+      const xd=Math.abs(m[cfg.xP]-dx),yd=Math.abs(m[cfg.yP]-dy);
+      const d=Math.sqrt(xd*xd+yd*yd);
+      el.style.opacity=Math.max(.3,1-d*.7);
+      el.style.zIndex=Math.round((1-d)*12);
+      const sim=Math.max(55,Math.round(score(m)*100));
+      const badge=el.querySelector('.sim-badge');
+      if(badge)badge.textContent=sim+'%';
+    }
+  });
+
+  // Labels
+  document.getElementById('axT').textContent=cfg.yL[1];
+  document.getElementById('axB').textContent=cfg.yL[0];
+  document.getElementById('axL').textContent=cfg.xL[0];
+  document.getElementById('axR').textContent=cfg.xL[1];
+  document.getElementById('countBadge').textContent=(vis.size+1)+' of '+pool.length+'+ results';
+}
+
+function updateStatus(){
+  const cfg=MODES[mode];
+  const d=Math.sqrt(Math.pow(dx-.5,2)+Math.pow(dy-.5,2));
+  if(d<.1){document.getElementById('status').textContent='';return;}
+  const ddx=dx-.5,ddy=dy-.5;let parts=[];
+  if(Math.abs(ddx)>.15)parts.push(ddx>0?cfg.xL[1]:cfg.xL[0]);
+  if(Math.abs(ddy)>.15)parts.push(ddy>0?cfg.yL[1]:cfg.yL[0]);
+  document.getElementById('status').textContent=parts.length?'Exploring '+parts.join(', ').toLowerCase()+' materials...':'';
+}
+
+// ── PILLS ──
+const pillBox=document.getElementById('pills');
+MODES.forEach((m,i)=>{
+  const b=document.createElement('button');
+  b.className='pill'+(i===0?' on':'');
+  b.textContent=m.label;
+  b.onclick=()=>setMode(i);
+  b.dataset.i=i;
+  pillBox.appendChild(b);
+});
+
+function setMode(i){
+  mode=i;
+  document.querySelectorAll('.pill').forEach(p=>p.className='pill'+(+p.dataset.i===i?' on':''));
+  const cfg=MODES[i];
+  document.getElementById('pT').textContent=cfg.yL[1];
+  document.getElementById('pB').textContent=cfg.yL[0];
+  document.getElementById('pL').textContent=cfg.xL[0];
+  document.getElementById('pR').textContent=cfg.xL[1];
+  document.getElementById('rowL').textContent=cfg.xL[0];
+  document.getElementById('rowR').textContent=cfg.xL[1];
+  dx=.5;dy=.5;upDot();
+  // Clear and rebuild
+  cards.forEach(el=>el.remove());cards.clear();vis.clear();
+  updateGrid();updateStatus();
+}
+
+function upDot(){
+  const ins=14;
+  dotEl.style.left=(ins+dx*(padEl.offsetWidth-ins*2))+'px';
+  dotEl.style.top=(ins+(1-dy)*(padEl.offsetHeight-ins*2))+'px';
+  dotEl.style.transform='translate(-50%,-50%)';
+}
+
+// ── PAD TOGGLE ──
+padEl.addEventListener('click',e=>{
+  if(dragging||e.target.closest('.dot'))return;
+  expanded=!expanded;padEl.classList.toggle('open',expanded);
+  setTimeout(upDot,50);setTimeout(upDot,400);
+});
+
+// ── DOT DRAG ──
+let throttle=null;
+function startDrag(e){
+  e.preventDefault();e.stopPropagation();dragging=true;
+  if(!expanded){expanded=true;padEl.classList.add('open');setTimeout(upDot,400);}
+  function mv(e){
+    const t=e.touches?e.touches[0]:e;
+    const r=padEl.getBoundingClientRect(),ins=14;
+    dx=Math.max(0,Math.min(1,(t.clientX-r.left-ins)/(r.width-ins*2)));
+    dy=Math.max(0,Math.min(1,1-(t.clientY-r.top-ins)/(padEl.offsetHeight-ins*2)));
+    upDot();
+    if(!throttle)throttle=setTimeout(()=>{updateGrid();updateStatus();throttle=null},60);
+  }
+  function up(){
+    document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);
+    document.removeEventListener('touchmove',mv);document.removeEventListener('touchend',up);
+    updateGrid();updateStatus();
+    setTimeout(()=>dragging=false,100);
+  }
+  document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);
+  document.addEventListener('touchmove',mv,{passive:false});document.addEventListener('touchend',up);
+}
+dotEl.addEventListener('mousedown',startDrag);
+dotEl.addEventListener('touchstart',startDrag,{passive:false});
+
+// ── DETAIL SHEET ──
+function showDetail(m){
+  const sheet=document.getElementById('detailSheet');
+  document.getElementById('detailContent').innerHTML=`
+    <div class="detail-swatch" style="background:linear-gradient(145deg,${m.color},${dk(m.color,30)})">
+      <div class="tex" style="${texCSS(m.sub)}"></div><div class="noise"></div></div>
+    <div class="detail-name">${m.name}</div>
+    <div class="detail-brand">${m.brand}</div>
+    <div class="detail-collection">${m.coll}</div>
+    <div class="detail-price">${m.price}</div>
+    <div class="detail-specs">
+      <div class="detail-spec"><div class="spec-label">Category</div><div class="spec-value">${m.sub[0].toUpperCase()+m.sub.slice(1)}</div></div>
+      <div class="detail-spec"><div class="spec-label">Composition</div><div class="spec-value" style="font-size:11px">${m.comp}</div></div>
+      <div class="detail-spec"><div class="spec-label">Weight</div><div class="spec-value">${m.specs.wt}</div></div>
+      <div class="detail-spec"><div class="spec-label">Width</div><div class="spec-value">${m.specs.w}</div></div>
+    </div>
+    <div class="detail-actions">
+      <button class="btn-similar" data-id="${m.id}">Find Similar</button>
+      <button class="btn-project">Add to Project</button>
+    </div>`;
+  sheet.classList.add('open');
+  sheet.querySelector('.btn-similar').onclick=()=>findSimilar(m.id);
+}
+function closeDetail(){document.getElementById('detailSheet').classList.remove('open')}
+document.getElementById('detailHandle').addEventListener('click',closeDetail);
+document.getElementById('detailSheet').addEventListener('click',e=>{
+  if(e.target===document.getElementById('detailSheet'))closeDetail();
+});
+
+function findSimilar(id){
+  const m=pool.find(x=>x.id===id);if(!m)return;
+  closeDetail();originStack.push(m);updateBreadcrumb();
+  cards.forEach(el=>el.remove());cards.clear();vis.clear();
+  dx=.5;dy=.5;upDot();updateGrid();
+}
+
+function updateBreadcrumb(){
+  const cur=originStack[originStack.length-1];
+  document.getElementById('titleText').innerHTML='Similar to <span>'+cur.name+'</span>';
+  const bc=document.getElementById('breadcrumb');
+  if(originStack.length>1){
+    bc.textContent=originStack.map(m=>m.name).join(' → ');
+    bc.style.display='block';
+  }else bc.style.display='none';
+}
+
+// ── BACK ──
+document.getElementById('backBtn').onclick=()=>{
+  if(originStack.length>1){
+    originStack.pop();updateBreadcrumb();
+    cards.forEach(el=>el.remove());cards.clear();vis.clear();
+    dx=.5;dy=.5;upDot();updateGrid();
+  }
+};
+
+// ── GALAXY VIEW ──
+document.getElementById('galaxyBtn').onclick=()=>{
+  galaxyMode=!galaxyMode;
+  document.getElementById('galaxyBtn').classList.toggle('active',galaxyMode);
+  const cv=document.getElementById('clusterView');
+  if(galaxyMode){
+    const cats={};
+    pool.forEach(m=>{if(!cats[m.cat])cats[m.cat]={name:m.cat,count:0,colors:[]};cats[m.cat].count++;if(cats[m.cat].colors.length<8)cats[m.cat].colors.push(m.color)});
+    cv.innerHTML='';
+    Object.values(cats).forEach(c=>{
+      const sz=70+c.count*1.5;
+      const b=document.createElement('div');b.className='cluster-bubble';
+      b.style.width=sz+'px';b.style.height=sz+'px';
+      b.innerHTML=`<span class="cl-name">${c.name[0].toUpperCase()+c.name.slice(1)}</span><span class="cl-count">${c.count}</span>
+        <div class="cl-dots">${c.colors.map(col=>`<div class="cl-dot" style="background:${col}"></div>`).join('')}</div>`;
+      b.onclick=()=>{document.getElementById('galaxyBtn').click()};
+      cv.appendChild(b);
+    });
+    cv.classList.add('active');gridEl.style.opacity='0';
+  }else{cv.classList.remove('active');gridEl.style.opacity='1';}
+};
+
+// ── INIT ──
+setMode(0);updateBreadcrumb();
+window.addEventListener('resize',()=>{upDot();updateGrid()});
+</script>
+</body>
+</html>
