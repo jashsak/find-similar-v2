@@ -298,7 +298,7 @@ const MODES=[
 ];
 
 // ── STATE ──
-let mode=0, dx=.5, dy=.5, expanded=false, dragging=false;
+let mode=0, dx=.5, dy=.5, lastDx=.5, lastDy=.5, expanded=false, dragging=false;
 let originStack=[pool[0]]; // start with Burgundy Velvet
 let galaxyMode=false;
 const vis=new Set(), cards=new Map();
@@ -352,10 +352,7 @@ function mkCard(m,isOrigin){
   el.className='card'+(isOrigin?' origin':'');
   const sz=isOrigin?80:72;
   el.innerHTML=`<div class="swatch" style="background:linear-gradient(145deg,${m.color},${dk(m.color,25)})">
-    <div class="tex" style="${texCSS(m.sub)}"></div><div class="noise"></div></div>
-    ${isOrigin?'':`<span class="sim-badge"></span>`}
-    <div class="card-name">${m.name}</div>
-    <div class="card-brand">${m.brand}</div>`;
+    <div class="tex" style="${texCSS(m.sub)}"></div><div class="noise"></div></div>`;
   el.addEventListener('click',e=>{e.stopPropagation();showDetail(m)});
   return el;
 }
@@ -407,9 +404,7 @@ function updateGrid(){
       const d=Math.sqrt(xd*xd+yd*yd);
       el.style.opacity=Math.max(.3,1-d*.7);
       el.style.zIndex=Math.round((1-d)*12);
-      const sim=Math.max(55,Math.round(score(m)*100));
-      const badge=el.querySelector('.sim-badge');
-      if(badge)badge.textContent=sim+'%';
+      // no badge
     }
   });
 
@@ -460,23 +455,32 @@ function setMode(i){
 
 function upDot(){
   const ins=14;
-  dotEl.style.left=(ins+dx*(padEl.offsetWidth-ins*2))+'px';
-  dotEl.style.top=(ins+(1-dy)*(padEl.offsetHeight-ins*2))+'px';
+  // When collapsed, dot always shows centered; when open, shows actual position
+  const showX=expanded?dx:.5;
+  const showY=expanded?dy:.5;
+  dotEl.style.left=(ins+showX*(padEl.offsetWidth-ins*2))+'px';
+  dotEl.style.top=(ins+(1-showY)*(padEl.offsetHeight-ins*2))+'px';
   dotEl.style.transform='translate(-50%,-50%)';
+  dotEl.style.transition=dragging?'none':'left .35s cubic-bezier(.25,.46,.45,.94), top .35s cubic-bezier(.25,.46,.45,.94)';
 }
 
 // ── PAD TOGGLE ──
 padEl.addEventListener('click',e=>{
   if(dragging||e.target.closest('.dot'))return;
-  expanded=!expanded;padEl.classList.toggle('open',expanded);
-  setTimeout(upDot,50);setTimeout(upDot,400);
+  expanded=!expanded;
+  padEl.classList.toggle('open',expanded);
+  // When opening, restore last position; when closing, save current & animate to center
+  if(!expanded){lastDx=dx;lastDy=dy;}
+  else{dx=lastDx;dy=lastDy;}
+  setTimeout(upDot,20);
+  setTimeout(()=>{if(expanded){updateGrid();updateStatus();}},380);
 });
 
 // ── DOT DRAG ──
 let throttle=null;
 function startDrag(e){
   e.preventDefault();e.stopPropagation();dragging=true;
-  if(!expanded){expanded=true;padEl.classList.add('open');setTimeout(upDot,400);}
+  if(!expanded){expanded=true;padEl.classList.add('open');dx=lastDx;dy=lastDy;setTimeout(upDot,20);}
   function mv(e){
     const t=e.touches?e.touches[0]:e;
     const r=padEl.getBoundingClientRect(),ins=14;
