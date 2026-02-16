@@ -63,7 +63,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);
 .card .card-brand{font-size:8px;color:var(--text2);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:72px}
 
 .controls{padding:6px 16px calc(var(--safe-bottom) + 8px);z-index:20}
-.pills{display:flex;gap:3px;background:rgba(255,255,255,.05);border-radius:100px;padding:3px;margin-bottom:8px;justify-content:center}
+.pills{display:flex;gap:3px;background:rgba(255,255,255,.05);border-radius:100px;padding:3px;margin-bottom:8px;justify-content:center;max-width:280px;margin-left:auto;margin-right:auto}
 .pill{padding:7px 16px;border-radius:100px;font-size:12px;font-weight:500;cursor:pointer;transition:all .2s;color:rgba(255,255,255,.35);border:none;background:none;white-space:nowrap}
 .pill:active{transform:scale(.93)}
 .pill.on{background:rgba(255,255,255,.1);color:#fff}
@@ -465,15 +465,10 @@ function upDot(){
 }
 
 // ── PAD TOGGLE ──
+// Tap to close (only when open and not dragging)
 padEl.addEventListener('click',e=>{
   if(dragging||e.target.closest('.dot'))return;
-  expanded=!expanded;
-  padEl.classList.toggle('open',expanded);
-  // When opening, restore last position; when closing, save current & animate to center
-  if(!expanded){lastDx=dx;lastDy=dy;}
-  else{dx=lastDx;dy=lastDy;}
-  setTimeout(upDot,20);
-  setTimeout(()=>{if(expanded){updateGrid();updateStatus();}},380);
+  if(expanded){expanded=false;padEl.classList.remove('open');lastDx=dx;lastDy=dy;setTimeout(upDot,20);}
 });
 
 // ── DOT DRAG ──
@@ -500,6 +495,9 @@ function startDrag(e){
 }
 dotEl.addEventListener('mousedown',startDrag);
 dotEl.addEventListener('touchstart',startDrag,{passive:false});
+// Drag from anywhere on the pad — opens and starts tracking immediately
+padEl.addEventListener('mousedown',e=>{if(!e.target.closest('.dot'))startDrag(e)});
+padEl.addEventListener('touchstart',e=>{if(!e.target.closest('.dot'))startDrag(e)},{passive:false});
 
 // ── DETAIL SHEET ──
 function showDetail(m){
