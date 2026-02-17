@@ -465,18 +465,16 @@ function upDot(){
 }
 
 // ── PAD TOGGLE ──
-// Tap anywhere to close pad
-document.addEventListener('click',e=>{
-  if(dragging)return;
-  if(expanded){expanded=false;padEl.classList.remove('open');lastDx=dx;lastDy=dy;setTimeout(upDot,20);}
-});
+// Tap anywhere to close pad (track if finger actually moved)
+let dragMoved=false;
 
 // ── DOT DRAG ──
 let throttle=null;
 function startDrag(e){
-  e.preventDefault();e.stopPropagation();dragging=true;
+  e.preventDefault();e.stopPropagation();dragging=true;dragMoved=false;
   if(!expanded){expanded=true;padEl.classList.add('open');dx=lastDx;dy=lastDy;setTimeout(upDot,20);}
   function mv(e){
+    dragMoved=true;
     const t=e.touches?e.touches[0]:e;
     const r=padEl.getBoundingClientRect(),ins=14;
     dx=Math.max(0,Math.min(1,(t.clientX-r.left-ins)/(r.width-ins*2)));
@@ -488,6 +486,8 @@ function startDrag(e){
     document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);
     document.removeEventListener('touchmove',mv);document.removeEventListener('touchend',up);
     updateGrid();updateStatus();
+    // If user tapped without dragging, close the pad
+    if(!dragMoved&&expanded){expanded=false;padEl.classList.remove('open');lastDx=dx;lastDy=dy;setTimeout(upDot,20);}
     setTimeout(()=>dragging=false,100);
   }
   document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);
@@ -498,6 +498,19 @@ dotEl.addEventListener('touchstart',startDrag,{passive:false});
 // Drag from anywhere on the pad — opens and starts tracking immediately
 padEl.addEventListener('mousedown',e=>{if(!e.target.closest('.dot'))startDrag(e)});
 padEl.addEventListener('touchstart',e=>{if(!e.target.closest('.dot'))startDrag(e)},{passive:false});
+// Tap outside pad to close
+document.addEventListener('touchend',e=>{
+  if(!expanded||dragging)return;
+  if(!e.target.closest('.pad')&&!e.target.closest('.pills')){
+    expanded=false;padEl.classList.remove('open');lastDx=dx;lastDy=dy;setTimeout(upDot,20);
+  }
+});
+document.addEventListener('click',e=>{
+  if(!expanded||dragging)return;
+  if(!e.target.closest('.pad')&&!e.target.closest('.pills')){
+    expanded=false;padEl.classList.remove('open');lastDx=dx;lastDy=dy;setTimeout(upDot,20);
+  }
+});
 
 // ── DETAIL SHEET ──
 function showDetail(m){
