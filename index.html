@@ -465,9 +465,9 @@ function upDot(){
 }
 
 // ── PAD TOGGLE ──
-// Tap to close (only when open and not dragging)
-padEl.addEventListener('click',e=>{
-  if(dragging||e.target.closest('.dot'))return;
+// Tap anywhere to close pad
+document.addEventListener('click',e=>{
+  if(dragging)return;
   if(expanded){expanded=false;padEl.classList.remove('open');lastDx=dx;lastDy=dy;setTimeout(upDot,20);}
 });
 
