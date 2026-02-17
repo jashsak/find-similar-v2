@@ -495,9 +495,14 @@ function startDrag(e){
 }
 dotEl.addEventListener('mousedown',startDrag);
 dotEl.addEventListener('touchstart',startDrag,{passive:false});
-// Drag from anywhere on the pad — opens and starts tracking immediately
-padEl.addEventListener('mousedown',e=>{if(!e.target.closest('.dot'))startDrag(e)});
-padEl.addEventListener('touchstart',e=>{if(!e.target.closest('.dot'))startDrag(e)},{passive:false});
+// Pad interaction: tap to open when closed, drag to explore when open
+padEl.addEventListener('click',e=>{
+  if(dragging||e.target.closest('.dot'))return;
+  if(!expanded){expanded=true;padEl.classList.add('open');dx=lastDx;dy=lastDy;setTimeout(upDot,20);setTimeout(()=>{updateGrid();updateStatus()},380);}
+});
+// Only start drag if already open (or from dot)
+padEl.addEventListener('mousedown',e=>{if(expanded&&!e.target.closest('.dot'))startDrag(e)});
+padEl.addEventListener('touchstart',e=>{if(expanded&&!e.target.closest('.dot'))startDrag(e)},{passive:false});
 // Tap outside pad to close
 document.addEventListener('touchend',e=>{
   if(!expanded||dragging)return;
